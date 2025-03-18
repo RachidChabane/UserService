@@ -3,6 +3,10 @@ import validate from '../../middlewares/validate';
 import authValidation from '../../validations/auth.validation';
 import { authController } from '../../controllers';
 import auth from '../../middlewares/auth';
+import { UserPayload } from '@prisma/client';
+import passport from 'passport';
+import config from '../../config/config';
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
@@ -26,6 +30,42 @@ router.post(
 );
 router.post('/send-verification-email', auth(), authController.sendVerificationEmail);
 router.post('/verify-email', validate(authValidation.verifyEmail), authController.verifyEmail);
+
+router.get('/google/callback',
+  passport.authenticate("google", { session: false }),
+  (req: express.Request, res: express.Response): void => {
+    if (!req.user) {
+      res.status(401).json({ message: "Authentication failed" });
+      return;
+    }
+
+    const user = req.user as UserPayload;
+
+    const jwtSecret = config.jwt.secret;
+    if (!jwtSecret) {
+      res.status(500).json({ message: "Server configuration error" });
+      return;
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.scalars.id,
+        role: user.scalars.role,
+        email: user.scalars.email,
+        display_name: user.scalars.display_name,
+      },
+      jwtSecret,
+      { expiresIn: "1d" }
+    );
+
+    const frontendUrl = "http://localhost:8080";
+    if (!frontendUrl) {
+      res.status(500).json({ message: "Server configuration error" });
+      return;
+    }
+    res.redirect(`${frontendUrl}/oauth-callback?token=${token}`);
+  }
+);
 
 export default router;
 
