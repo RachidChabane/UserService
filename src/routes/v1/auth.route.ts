@@ -18,19 +18,6 @@ router.post(
   validate(authValidation.refreshTokens),
   authController.refreshTokens
 );
-router.post(
-  '/forgot-password',
-  validate(authValidation.forgotPassword),
-  authController.forgotPassword
-);
-router.post(
-  '/reset-password',
-  validate(authValidation.resetPassword),
-  authController.resetPassword
-);
-router.post('/send-verification-email', auth(), authController.sendVerificationEmail);
-router.post('/verify-email', validate(authValidation.verifyEmail), authController.verifyEmail);
-
 router.get('/google/callback',
   passport.authenticate("google", { session: false }),
   (req: express.Request, res: express.Response): void => {
