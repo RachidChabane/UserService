@@ -2,37 +2,58 @@ import httpStatus from 'http-status';
 import tokenService from './token.service';
 import userService from './user.service';
 import ApiError from '../utils/ApiError';
-import { TokenType, User } from '@prisma/client';
+import { Role, TokenType, User } from '@prisma/client';
 import prisma from '../client';
 import { encryptPassword, isPasswordMatch } from '../utils/encryption';
 import { AuthTokensResponse } from '../types/response';
 import exclude from '../utils/exclude';
-
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 /**
- * Login with username and password
- * @param {string} email
- * @param {string} password
- * @returns {Promise<Omit<User, 'password'>>}
+ * Login with Google
+ * @param {string} accessToken
+ * @param {string} refreshToken
+ * @param {Object} profile
+ * @param {Function} done
  */
-const loginUserWithEmailAndPassword = async (
-  email: string,
-  password: string
-): Promise<Omit<User, 'password'>> => {
-  const user = await userService.getUserByEmail(email, [
-    'id',
-    'email',
-    'name',
-    'password',
-    'role',
-    'isEmailVerified',
-    'createdAt',
-    'updatedAt'
-  ]);
-  if (!user || !(await isPasswordMatch(password, user.password as string))) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
+const loginUserWithGoogle = async (
+  accessToken: string,
+  refreshToken: string,
+  profile: any,
+  done: Function
+) => {
+  try {
+    let user = await userService.getUserByEmail(profile.emails[0].value, [
+      'id',
+      'provider',
+      'provider_id',
+      'email',
+      'display_name',
+      'role',
+      'createdAt',
+      'updatedAt',
+    ]);
+
+    if (!user) {
+      user = await userService.createUser(profile.emails[0].value,profile.displayName,Role.USER);
+    }
+
+    done(null, exclude(user, ['createdAt', 'updatedAt']));
+  } catch (error) {
+    done(error);
   }
-  return exclude(user, ['password']);
 };
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      callbackURL: '/auth/google/callback',
+    },
+    loginUserWithGoogle
+  )
+);
 
 /**
  * Logout
@@ -69,56 +90,10 @@ const refreshAuth = async (refreshToken: string): Promise<AuthTokensResponse> =>
   }
 };
 
-/**
- * Reset password
- * @param {string} resetPasswordToken
- * @param {string} newPassword
- * @returns {Promise<void>}
- */
-const resetPassword = async (resetPasswordToken: string, newPassword: string): Promise<void> => {
-  try {
-    const resetPasswordTokenData = await tokenService.verifyToken(
-      resetPasswordToken,
-      TokenType.RESET_PASSWORD
-    );
-    const user = await userService.getUserById(resetPasswordTokenData.userId);
-    if (!user) {
-      throw new Error();
-    }
-    const encryptedPassword = await encryptPassword(newPassword);
-    await userService.updateUserById(user.id, { password: encryptedPassword });
-    await prisma.token.deleteMany({ where: { userId: user.id, type: TokenType.RESET_PASSWORD } });
-  } catch (error) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Password reset failed');
-  }
-};
-
-/**
- * Verify email
- * @param {string} verifyEmailToken
- * @returns {Promise<void>}
- */
-const verifyEmail = async (verifyEmailToken: string): Promise<void> => {
-  try {
-    const verifyEmailTokenData = await tokenService.verifyToken(
-      verifyEmailToken,
-      TokenType.VERIFY_EMAIL
-    );
-    await prisma.token.deleteMany({
-      where: { userId: verifyEmailTokenData.userId, type: TokenType.VERIFY_EMAIL }
-    });
-    await userService.updateUserById(verifyEmailTokenData.userId, { isEmailVerified: true });
-  } catch (error) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Email verification failed');
-  }
-};
-
 export default {
-  loginUserWithEmailAndPassword,
   isPasswordMatch,
   encryptPassword,
   logout,
   refreshAuth,
-  resetPassword,
-  verifyEmail
+  loginUserWithGoogle,
 };
