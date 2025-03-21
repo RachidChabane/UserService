@@ -11,8 +11,7 @@ import { encryptPassword } from '../utils/encryption';
  */
 const createUser = async (
   email: string,
-  password: string,
-  name?: string,
+  display_name?: string,
   role: Role = Role.USER
 ): Promise<User> => {
   if (await getUserByEmail(email)) {
@@ -21,8 +20,7 @@ const createUser = async (
   return prisma.user.create({
     data: {
       email,
-      name,
-      password: await encryptPassword(password),
+      display_name,
       role
     }
   });
@@ -93,6 +91,10 @@ const getUserById = async <Key extends keyof User>(
     where: { id },
     select: keys.reduce((obj, k) => ({ ...obj, [k]: true }), {})
   }) as Promise<Pick<User, Key> | null>;
+};
+
+const findUserById = async (id: number): Promise<User | null> => {
+  return prisma.user.findUnique({ where: { id } });
 };
 
 /**
