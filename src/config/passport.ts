@@ -5,8 +5,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const googleClientId = "";
-const googleClientSecret = "";
+const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
 
 if (!googleClientId || !googleClientSecret) {
   console.error("Missing Google OAuth credentials in environment variables");
