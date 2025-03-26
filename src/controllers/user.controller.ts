@@ -3,7 +3,6 @@ import { userService } from '../services/user.service';
 import { UpdateUserDto, UserFilters } from '../models/user.model';
 import logger from '../utils/logger';
 
-// Interface for request with pagination query
 interface PaginatedRequest extends Request {
   query: {
     page?: string;

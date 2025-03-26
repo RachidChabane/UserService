@@ -9,7 +9,6 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
-// Interface for creating a user
 export interface CreateUserDto {
   auth0Id: string;
   email: string;
@@ -17,20 +16,17 @@ export interface CreateUserDto {
   role?: string;
 }
 
-// Interface for updating a user
 export interface UpdateUserDto {
   displayName?: string;
   email?: string;
 }
 
-// Interface for user filters
 export interface UserFilters {
   page?: number;
   limit?: number;
   search?: string;
 }
 
-// Interface for paginated users response
 export interface PaginatedUsers {
   users: IUser[];
   total: number;
@@ -39,7 +35,6 @@ export interface PaginatedUsers {
   totalPages: number;
 }
 
-// Define the User Schema
 const userSchema = new Schema<IUser>(
   {
     auth0Id: {
@@ -63,7 +58,7 @@ const userSchema = new Schema<IUser>(
     }
   },
   {
-    timestamps: true, // adds createdAt and updatedAt fields
+    timestamps: true,
     toJSON: {
       transform: (doc, ret) => {
         ret.id = ret._id;

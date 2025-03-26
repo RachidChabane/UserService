@@ -1,4 +1,3 @@
-// src/middleware/error.middleware.ts
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import { AppError } from '../utils/errors';
 import logger from '../utils/logger';
@@ -16,7 +15,6 @@ export const errorHandler: ErrorRequestHandler = (
     method: req.method
   });
 
-  // Handle express-jwt errors
   if (err.name === 'UnauthorizedError') {
     res.status(401).json({
       status: 'error',
@@ -25,7 +23,6 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  // Operational errors (expected errors)
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       status: 'error',
@@ -34,7 +31,6 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  // Unexpected errors
   res.status(500).json({
     status: 'error',
     message: 'Internal server error'

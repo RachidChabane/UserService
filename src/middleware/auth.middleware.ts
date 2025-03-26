@@ -6,7 +6,6 @@ import { userService } from '../services/user.service';
 import logger from '../utils/logger';
 import { UnauthorizedError, ForbiddenError } from '../utils/errors';
 
-// Define interface to extend Express Request
 declare global {
   namespace Express {
     interface Request {

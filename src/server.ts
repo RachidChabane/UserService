@@ -6,15 +6,12 @@ import logger from './utils/logger';
 
 const startServer = async () => {
   try {
-    // Connect to MongoDB
     await connectDB();
     
-    // Start the Express server
     const server = app.listen(environment.port, () => {
       logger.info(`Server started on port ${environment.port} in ${environment.nodeEnv} mode`);
     });
 
-    // Handle unhandled rejections
     process.on('unhandledRejection', (err) => {
       logger.error('Unhandled Rejection', err);
       server.close(() => {
@@ -22,7 +19,6 @@ const startServer = async () => {
       });
     });
 
-    // Handle SIGTERM
     process.on('SIGTERM', () => {
       logger.info('SIGTERM received. Shutting down gracefully');
       server.close(() => {

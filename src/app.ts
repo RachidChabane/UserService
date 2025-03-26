@@ -20,7 +20,6 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', environment: environment.nodeEnv });
 });
 
-// Apply error handling middleware (must be last)
 app.use(errorHandler);
 
 export default app;

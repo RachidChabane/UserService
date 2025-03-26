@@ -2,7 +2,6 @@ import axios from 'axios';
 import { environment } from '../config/environment';
 import logger from '../utils/logger';
 
-// Define interfaces for Auth0 responses
 interface Auth0UserInfo {
   sub: string;
   email: string;
@@ -29,7 +28,7 @@ class Auth0Service {
     this.audience = audience;
   }
   
-  // Get user info from Auth0 using access token
+
   async getUserInfo(accessToken: string): Promise<Auth0UserInfo> {
     try {
       const response = await axios.get<Auth0UserInfo>(`https://${this.domain}/userinfo`, {
@@ -45,9 +44,8 @@ class Auth0Service {
     }
   }
   
-  // Get Management API token
+
   private async getManagementToken(): Promise<string> {
-    // Check if we already have a valid token
     const now = Date.now();
     if (this.managementToken && now < this.tokenExpiresAt) {
       return this.managementToken;
@@ -75,7 +73,6 @@ class Auth0Service {
     }
   }
   
-  // Get user details from Auth0 Management API
   async getUserDetailsById(userId: string): Promise<Auth0UserInfo> {
     try {
       const token = await this.getManagementToken();
@@ -96,7 +93,6 @@ class Auth0Service {
     }
   }
   
-  // Assign roles to a user in Auth0
   async assignRolesToUser(userId: string, roleIds: string[]): Promise<void> {
     try {
       const token = await this.getManagementToken();

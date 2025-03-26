@@ -3,22 +3,18 @@ import User, { IUser, CreateUserDto, UpdateUserDto, UserFilters, PaginatedUsers 
 import { NotFoundError } from '../utils/errors';
 
 class UserRepository {
-  // Find user by ID
   async findById(id: string): Promise<IUser | null> {
     try {
       return await User.findById(id);
     } catch (error) {
-      // Handle invalid ObjectId format
       return null;
     }
   }
 
-  // Find user by Auth0 ID
   async findByAuth0Id(auth0Id: string): Promise<IUser | null> {
     return User.findOne({ auth0Id });
   }
 
-  // Create new user
   async create(userData: CreateUserDto): Promise<IUser> {
     const newUser = new User({
       auth0Id: userData.auth0Id,
@@ -30,7 +26,6 @@ class UserRepository {
     return await newUser.save();
   }
 
-  // Update user
   async update(id: string, userData: UpdateUserDto): Promise<IUser> {
     const updateData: Partial<IUser> = {};
     
@@ -64,7 +59,6 @@ class UserRepository {
     return updatedUser;
   }
 
-  // Update auth0 user info
   async updateAuth0UserInfo(auth0Id: string, userData: UpdateUserDto): Promise<IUser> {
     const user = await this.findByAuth0Id(auth0Id);
     
@@ -75,7 +69,6 @@ class UserRepository {
     return this.update(user.id, userData);
   }
 
-  // List users with pagination
   async findAll(filters: UserFilters): Promise<PaginatedUsers> {
     const page = filters.page || 1;
     const limit = filters.limit || 10;
@@ -91,10 +84,8 @@ class UserRepository {
       ];
     }
     
-    // Get total count
     const total = await User.countDocuments(query);
     
-    // Fetch users with pagination
     const users = await User.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)

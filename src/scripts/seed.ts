@@ -6,18 +6,17 @@ import logger from '../utils/logger';
 
 async function seed() {
   try {
-    // Connect to MongoDB
+
     await mongoose.connect(environment.mongodbUri);
     logger.info('Connected to MongoDB for seeding');
 
-    // Check if there are existing users
     const count = await User.countDocuments();
     if (count > 0) {
       logger.info(`Database already has ${count} users. Skipping seed.`);
       return;
     }
 
-    // Seed admin user
+
     const admin = new User({
       auth0Id: 'auth0|admin',
       email: 'admin@example.com',
@@ -26,7 +25,6 @@ async function seed() {
     });
     await admin.save();
 
-    // Seed test users
     const testUsers = [
       {
         auth0Id: 'auth0|test1',
@@ -49,13 +47,11 @@ async function seed() {
     logger.error('Error seeding database:', error);
     process.exit(1);
   } finally {
-    // Close connection
     await mongoose.connection.close();
     logger.info('MongoDB connection closed');
   }
 }
 
-// Run seed if this script is executed directly
 if (require.main === module) {
   seed()
     .then(() => {
