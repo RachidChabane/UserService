@@ -175,12 +175,11 @@ curl -X PUT \
   http://localhost:3000/api/users/me
 ```
 
-## Testing Scripts
-
-The repository includes several testing scripts:
+## Testing Script
 
 ```bash
 chmod +x src/scripts/auth-db-test.sh
+
 ./src/scripts/auth-db-test.sh
 ```
 
