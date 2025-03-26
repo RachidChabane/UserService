@@ -1,0 +1,1176 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+src/
+  config/
+    database.ts
+    environment.ts
+  controllers/
+    user.controller.ts
+  middleware/
+    auth.middleware.ts
+    error.middleware.ts
+    validation.middleware.ts
+  models/
+    user.model.ts
+  repositories/
+    user.repository.ts
+  routes/
+    user.routes.ts
+  scripts/
+    db-setup.ts
+    seed.ts
+  services/
+    auth0.service.ts
+    user.service.ts
+  utils/
+    errors.ts
+    logger.ts
+  validations/
+    user.validation.ts
+  app.ts
+  server.ts
+package.json
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/config/database.ts">
+import mongoose from 'mongoose';
+import { environment } from './environment';
+import logger from '../utils/logger';
+
+const connectDB = async (): Promise<void> => {
+  try {
+    const conn = await mongoose.connect(environment.mongodbUri);
+    
+    logger.info(`MongoDB Connected: ${conn.connection.host}`);
+    
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      logger.error('MongoDB connection error:', err);
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('MongoDB disconnected');
+    });
+    
+    // Handle app termination
+    process.on('SIGINT', async () => {
+      await mongoose.connection.close();
+      logger.info('MongoDB connection closed due to app termination');
+      process.exit(0);
+    });
+    
+  } catch (error) {
+    logger.error('Error connecting to MongoDB:', error);
+    process.exit(1);
+  }
+};
+
+export default connectDB;
+</file>
+
+<file path="src/config/environment.ts">
+export interface Environment {
+  nodeEnv: string;
+  port: number;
+  mongodbUri: string;
+  auth0: {
+    domain: string;
+    audience: string;
+  };
+  logLevel: string;
+}
+
+export const environment: Environment = {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  port: parseInt(process.env.PORT || '3000', 10),
+  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/concert_tickets',
+  auth0: {
+    domain: process.env.AUTH0_DOMAIN || 'your-tenant.auth0.com',
+    audience: process.env.AUTH0_AUDIENCE || 'https://api.concert-tickets.com'
+  },
+  logLevel: process.env.LOG_LEVEL || 'info'
+};
+</file>
+
+<file path="src/controllers/user.controller.ts">
+import { Request, Response, NextFunction } from 'express';
+import { userService } from '../services/user.service';
+import { UpdateUserDto, UserFilters } from '../models/user.model';
+import logger from '../utils/logger';
+
+// Interface for request with pagination query
+interface PaginatedRequest extends Request {
+  query: {
+    page?: string;
+    limit?: string;
+    search?: string;
+  }
+}
+
+export class UserController {
+  // Get current user profile
+  async getCurrentUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ 
+          status: 'error', 
+          message: 'Not authenticated' 
+        });
+      }
+      
+      const user = await userService.findById(req.user.id);
+      
+      res.status(200).json({
+        status: 'success',
+        data: user
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  // Get user by ID (admin only)
+  async getUserById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = await userService.findById(req.params.id);
+      
+      res.status(200).json({
+        status: 'success',
+        data: user
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  // Update current user profile
+  async updateCurrentUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ 
+          status: 'error', 
+          message: 'Not authenticated' 
+        });
+      }
+      
+      const updateData: UpdateUserDto = {
+        displayName: req.body.displayName
+      };
+      
+      const updatedUser = await userService.updateProfile(req.user.id, updateData);
+      
+      res.status(200).json({
+        status: 'success',
+        data: updatedUser
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  // List all users (admin only)
+  async listUsers(req: PaginatedRequest, res: Response, next: NextFunction) {
+    try {
+      const filters: UserFilters = {
+        page: req.query.page ? parseInt(req.query.page, 10) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit, 10) : 10,
+        search: req.query.search
+      };
+      
+      const paginatedUsers = await userService.findAllUsers(filters);
+      
+      res.status(200).json({
+        status: 'success',
+        data: paginatedUsers.users,
+        pagination: {
+          total: paginatedUsers.total,
+          page: paginatedUsers.page,
+          limit: paginatedUsers.limit,
+          totalPages: paginatedUsers.totalPages
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
+export const userController = new UserController();
+</file>
+
+<file path="src/middleware/auth.middleware.ts">
+import { Request, Response, NextFunction } from 'express';
+import { expressjwt as jwt, GetVerificationKey } from 'express-jwt';
+import jwksRsa from 'jwks-rsa';
+import { environment } from '../config/environment';
+import { userService } from '../services/user.service';
+import logger from '../utils/logger';
+import { UnauthorizedError, ForbiddenError } from '../utils/errors';
+
+// Define interface to extend Express Request
+declare global {
+  namespace Express {
+    interface Request {
+      auth?: {
+        sub: string;
+        [key: string]: any;
+      };
+      user?: {
+        id: string;
+        auth0Id: string;
+        email: string;
+        displayName?: string;
+        role: string;
+      };
+    }
+  }
+}
+
+export const validateJwt = jwt({
+  secret: jwksRsa.expressJwtSecret({
+    cache: true,
+    rateLimit: true,
+    jwksRequestsPerMinute: 5,
+    jwksUri: `https://${environment.auth0.domain}/.well-known/jwks.json`
+  }) as GetVerificationKey,
+  audience: environment.auth0.audience,
+  issuer: `https://${environment.auth0.domain}/`,
+  algorithms: ['RS256']
+});
+
+export const syncUserMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.auth?.sub) {
+      return next(new UnauthorizedError('No authenticated user found '));
+    }
+
+    const auth0Id = req.auth.sub;
+    const email = req.auth.email || '';
+    const name = req.auth[`${environment.auth0.audience}/name`] || req.auth.name || '';
+
+    const user = await userService.findOrCreateUser({
+      auth0Id,
+      email,
+      displayName: name
+    });
+
+//  @ts-ignore
+    req.user = user;
+    next();
+  } catch (error) {
+    logger.error('Error syncing user data', { error });
+    next(error);
+  }
+};
+
+export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (req.user?.role !== 'admin') {
+    return next(new ForbiddenError('Admin access required'));
+  }
+  next();
+};
+</file>
+
+<file path="src/middleware/error.middleware.ts">
+// src/middleware/error.middleware.ts
+import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import { AppError } from '../utils/errors';
+import logger from '../utils/logger';
+
+export const errorHandler: ErrorRequestHandler = (
+  err: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  logger.error('Error occurred', { 
+    error: err.message, 
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
+
+  // Handle express-jwt errors
+  if (err.name === 'UnauthorizedError') {
+    res.status(401).json({
+      status: 'error',
+      message: 'Invalid token'
+    });
+    return;
+  }
+
+  // Operational errors (expected errors)
+  if (err instanceof AppError) {
+    res.status(err.statusCode).json({
+      status: 'error',
+      message: err.message
+    });
+    return;
+  }
+
+  // Unexpected errors
+  res.status(500).json({
+    status: 'error',
+    message: 'Internal server error'
+  });
+  return;
+};
+</file>
+
+<file path="src/middleware/validation.middleware.ts">
+import { Request, Response, NextFunction } from 'express';
+import Joi from 'joi';
+import { ValidationError } from '../utils/errors';
+
+export const validate = (schema: Joi.ObjectSchema) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const { error } = schema.validate(req.body, { abortEarly: false });
+    
+    if (error) {
+      const message = error.details.map(detail => detail.message).join(', ');
+      return next(new ValidationError(message));
+    }
+    
+    next();
+  };
+};
+</file>
+
+<file path="src/models/user.model.ts">
+import mongoose, { Document, Schema } from 'mongoose';
+
+export interface IUser extends Document {
+  auth0Id: string;
+  email: string;
+  displayName?: string;
+  role: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Interface for creating a user
+export interface CreateUserDto {
+  auth0Id: string;
+  email: string;
+  displayName?: string;
+  role?: string;
+}
+
+// Interface for updating a user
+export interface UpdateUserDto {
+  displayName?: string;
+  email?: string;
+}
+
+// Interface for user filters
+export interface UserFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+// Interface for paginated users response
+export interface PaginatedUsers {
+  users: IUser[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// Define the User Schema
+const userSchema = new Schema<IUser>(
+  {
+    auth0Id: {
+      type: String,
+      required: true,
+      unique: true
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true
+    },
+    displayName: {
+      type: String
+    },
+    role: {
+      type: String,
+      required: true,
+      enum: ['user', 'admin'],
+      default: 'user'
+    }
+  },
+  {
+    timestamps: true, // adds createdAt and updatedAt fields
+    toJSON: {
+      transform: (doc, ret) => {
+        ret.id = ret._id;
+        delete ret._id;
+        delete ret.__v;
+      }
+    }
+  }
+);
+
+// Create and export User model
+const User = mongoose.model<IUser>('User', userSchema);
+
+export default User;
+</file>
+
+<file path="src/repositories/user.repository.ts">
+import { FilterQuery } from 'mongoose';
+import User, { IUser, CreateUserDto, UpdateUserDto, UserFilters, PaginatedUsers } from '../models/user.model';
+import { NotFoundError } from '../utils/errors';
+
+class UserRepository {
+  // Find user by ID
+  async findById(id: string): Promise<IUser | null> {
+    try {
+      return await User.findById(id);
+    } catch (error) {
+      // Handle invalid ObjectId format
+      return null;
+    }
+  }
+
+  // Find user by Auth0 ID
+  async findByAuth0Id(auth0Id: string): Promise<IUser | null> {
+    return User.findOne({ auth0Id });
+  }
+
+  // Create new user
+  async create(userData: CreateUserDto): Promise<IUser> {
+    const newUser = new User({
+      auth0Id: userData.auth0Id,
+      email: userData.email,
+      displayName: userData.displayName || null,
+      role: userData.role || 'user'
+    });
+    
+    return await newUser.save();
+  }
+
+  // Update user
+  async update(id: string, userData: UpdateUserDto): Promise<IUser> {
+    const updateData: Partial<IUser> = {};
+    
+    if (userData.displayName !== undefined) {
+      updateData.displayName = userData.displayName;
+    }
+    
+    if (userData.email !== undefined) {
+      updateData.email = userData.email;
+    }
+    
+    // If no fields to update, return current user
+    if (Object.keys(updateData).length === 0) {
+      const currentUser = await this.findById(id);
+      if (!currentUser) {
+        throw new NotFoundError('User not found');
+      }
+      return currentUser;
+    }
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedUser) {
+      throw new NotFoundError('User not found');
+    }
+    
+    return updatedUser;
+  }
+
+  // Update auth0 user info
+  async updateAuth0UserInfo(auth0Id: string, userData: UpdateUserDto): Promise<IUser> {
+    const user = await this.findByAuth0Id(auth0Id);
+    
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    
+    return this.update(user.id, userData);
+  }
+
+  // List users with pagination
+  async findAll(filters: UserFilters): Promise<PaginatedUsers> {
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+    
+    // Build query
+    const query: FilterQuery<IUser> = {};
+    
+    if (filters.search) {
+      query.$or = [
+        { email: { $regex: filters.search, $options: 'i' } },
+        { displayName: { $regex: filters.search, $options: 'i' } }
+      ];
+    }
+    
+    // Get total count
+    const total = await User.countDocuments(query);
+    
+    // Fetch users with pagination
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    return {
+      users,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+}
+
+export const userRepository = new UserRepository();
+</file>
+
+<file path="src/routes/user.routes.ts">
+import { Router } from 'express';
+import { userController } from '../controllers/user.controller';
+import { validateJwt, syncUserMiddleware, requireAdmin } from '../middleware/auth.middleware';
+import { validate } from '../middleware/validation.middleware';
+import { updateUserSchema } from '../validations/user.validation';
+
+const router = Router();
+
+
+// Protected routes that require authentication
+router.use(validateJwt);
+router.use(syncUserMiddleware);
+
+// @ts-ignore
+router.get('/me', userController.getCurrentUser);
+
+// @ts-ignore
+router.put('/me', validate(updateUserSchema), userController.updateCurrentUser);
+
+// @ts-ignore
+router.get('/', requireAdmin, userController.listUsers);
+
+// @ts-ignore
+router.get('/:id', requireAdmin, userController.getUserById);
+
+export default router;
+</file>
+
+<file path="src/scripts/db-setup.ts">
+// src/scripts/db-setup.ts
+import 'dotenv/config';
+import mongoose from 'mongoose';
+import { environment } from '../config/environment';
+import User from '../models/user.model';
+import logger from '../utils/logger';
+
+async function setupDatabase() {
+  try {
+    // Connect to MongoDB
+    await mongoose.connect(environment.mongodbUri);
+    logger.info('Connected to MongoDB for setup');
+
+    // Drop existing indexes to avoid conflicts (optional - use with caution)
+    // Uncomment this if you're having index issues and want to rebuild all indexes
+    // const collections = await mongoose.connection.db.collections();
+    // for (const collection of collections) {
+    //   await collection.dropIndexes();
+    //   logger.info(`Dropped indexes for collection: ${collection.collectionName}`);
+    // }
+
+    // Create indexes (this will be skipped if indexes already exist)
+    logger.info('Setting up indexes...');
+    
+    // Instead of using User.createIndexes() which might have issues
+    // We'll ensure the model is registered with Mongoose
+    logger.info('Model has been registered');
+    
+    logger.info('Database setup completed successfully');
+  } catch (error) {
+    logger.error('Error setting up database:', error);
+    process.exit(1);
+  } finally {
+    // Close connection
+    await mongoose.connection.close();
+    logger.info('MongoDB connection closed');
+  }
+}
+
+// Run setup if this script is executed directly
+if (require.main === module) {
+  setupDatabase()
+    .then(() => {
+      logger.info('Database setup complete');
+      process.exit(0);
+    })
+    .catch((error) => {
+      logger.error('Database setup failed:', error);
+      process.exit(1);
+    });
+}
+</file>
+
+<file path="src/scripts/seed.ts">
+import 'dotenv/config';
+import mongoose from 'mongoose';
+import { environment } from '../config/environment';
+import User from '../models/user.model';
+import logger from '../utils/logger';
+
+async function seed() {
+  try {
+    // Connect to MongoDB
+    await mongoose.connect(environment.mongodbUri);
+    logger.info('Connected to MongoDB for seeding');
+
+    // Check if there are existing users
+    const count = await User.countDocuments();
+    if (count > 0) {
+      logger.info(`Database already has ${count} users. Skipping seed.`);
+      return;
+    }
+
+    // Seed admin user
+    const admin = new User({
+      auth0Id: 'auth0|admin',
+      email: 'admin@example.com',
+      displayName: 'System Admin',
+      role: 'admin'
+    });
+    await admin.save();
+
+    // Seed test users
+    const testUsers = [
+      {
+        auth0Id: 'auth0|test1',
+        email: 'user1@example.com',
+        displayName: 'Test User 1',
+        role: 'user'
+      },
+      {
+        auth0Id: 'auth0|test2',
+        email: 'user2@example.com',
+        displayName: 'Test User 2',
+        role: 'user'
+      }
+    ];
+
+    await User.insertMany(testUsers);
+    
+    logger.info('Database seeded successfully');
+  } catch (error) {
+    logger.error('Error seeding database:', error);
+    process.exit(1);
+  } finally {
+    // Close connection
+    await mongoose.connection.close();
+    logger.info('MongoDB connection closed');
+  }
+}
+
+// Run seed if this script is executed directly
+if (require.main === module) {
+  seed()
+    .then(() => {
+      logger.info('Seeding complete');
+      process.exit(0);
+    })
+    .catch((error) => {
+      logger.error('Seeding failed:', error);
+      process.exit(1);
+    });
+}
+</file>
+
+<file path="src/services/auth0.service.ts">
+import axios from 'axios';
+import { environment } from '../config/environment';
+import logger from '../utils/logger';
+
+// Define interfaces for Auth0 responses
+interface Auth0UserInfo {
+  sub: string;
+  email: string;
+  name?: string;
+  nickname?: string;
+  picture?: string;
+  [key: string]: any;
+}
+
+interface Auth0ManagementTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+class Auth0Service {
+  private domain: string;
+  private audience: string;
+  private managementToken: string | null = null;
+  private tokenExpiresAt: number = 0;
+  
+  constructor(domain: string, audience: string) {
+    this.domain = domain;
+    this.audience = audience;
+  }
+  
+  // Get user info from Auth0 using access token
+  async getUserInfo(accessToken: string): Promise<Auth0UserInfo> {
+    try {
+      const response = await axios.get<Auth0UserInfo>(`https://${this.domain}/userinfo`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+      
+      return response.data;
+    } catch (error) {
+      logger.error('Error fetching user info from Auth0', { error });
+      throw new Error('Failed to fetch user info from Auth0');
+    }
+  }
+  
+  // Get Management API token
+  private async getManagementToken(): Promise<string> {
+    // Check if we already have a valid token
+    const now = Date.now();
+    if (this.managementToken && now < this.tokenExpiresAt) {
+      return this.managementToken;
+    }
+    
+    try {
+      const response = await axios.post<Auth0ManagementTokenResponse>(
+        `https://${this.domain}/oauth/token`,
+        {
+          client_id: process.env.AUTH0_CLIENT_ID,
+          client_secret: process.env.AUTH0_CLIENT_SECRET,
+          audience: `https://${this.domain}/api/v2/`,
+          grant_type: 'client_credentials'
+        }
+      );
+      
+      this.managementToken = response.data.access_token;
+      // Set expiry time to 80% of the actual expiry to be safe
+      this.tokenExpiresAt = now + (response.data.expires_in * 1000 * 0.8);
+      
+      return this.managementToken;
+    } catch (error) {
+      logger.error('Error getting Auth0 management token', { error });
+      throw new Error('Failed to get Auth0 management token');
+    }
+  }
+  
+  // Get user details from Auth0 Management API
+  async getUserDetailsById(userId: string): Promise<Auth0UserInfo> {
+    try {
+      const token = await this.getManagementToken();
+      
+      const response = await axios.get<Auth0UserInfo>(
+        `https://${this.domain}/api/v2/users/${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      logger.error('Error fetching user details from Auth0', { error, userId });
+      throw new Error('Failed to fetch user details from Auth0');
+    }
+  }
+  
+  // Assign roles to a user in Auth0
+  async assignRolesToUser(userId: string, roleIds: string[]): Promise<void> {
+    try {
+      const token = await this.getManagementToken();
+      
+      await axios.post(
+        `https://${this.domain}/api/v2/users/${encodeURIComponent(userId)}/roles`,
+        { roles: roleIds },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } catch (error) {
+      logger.error('Error assigning roles to user in Auth0', { error, userId, roleIds });
+      throw new Error('Failed to assign roles to user in Auth0');
+    }
+  }
+}
+
+export const auth0Service = new Auth0Service(
+  environment.auth0.domain,
+  environment.auth0.audience
+);
+</file>
+
+<file path="src/services/user.service.ts">
+import { IUser, CreateUserDto, UpdateUserDto, UserFilters, PaginatedUsers } from '../models/user.model';
+import { userRepository } from '../repositories/user.repository';
+import { NotFoundError } from '../utils/errors';
+import logger from '../utils/logger';
+
+class UserService {
+  // Find user by ID
+  async findById(id: string): Promise<IUser> {
+    const user = await userRepository.findById(id);
+    
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    
+    return user;
+  }
+  
+  // Find user by Auth0 ID
+  async findByAuth0Id(auth0Id: string): Promise<IUser | null> {
+    return userRepository.findByAuth0Id(auth0Id);
+  }
+  
+  // Find or create user from Auth0 data
+  async findOrCreateUser(userData: CreateUserDto): Promise<IUser> {
+    try {
+      // Try to find existing user
+      const existingUser = await this.findByAuth0Id(userData.auth0Id);
+      
+      if (existingUser) {
+        // Update user with latest Auth0 information if needed
+        if (existingUser.email !== userData.email || 
+            existingUser.displayName !== userData.displayName) {
+          
+          return userRepository.update(existingUser.id, {
+            email: userData.email,
+            displayName: userData.displayName
+          });
+        }
+        
+        return existingUser;
+      }
+      
+      // User doesn't exist, create new user
+      const newUser = await userRepository.create(userData);
+      logger.info(`Created new user: ${newUser.id} with Auth0 ID: ${userData.auth0Id}`);
+      
+      return newUser;
+    } catch (error) {
+      logger.error('Error finding or creating user', { error, auth0Id: userData.auth0Id });
+      throw error;
+    }
+  }
+  
+  // Update user profile
+  async updateProfile(id: string, updateData: UpdateUserDto): Promise<IUser> {
+    return userRepository.update(id, updateData);
+  }
+  
+  // List users with pagination
+  async findAllUsers(filters: UserFilters): Promise<PaginatedUsers> {
+    return userRepository.findAll(filters);
+  }
+}
+
+export const userService = new UserService();
+</file>
+
+<file path="src/utils/errors.ts">
+export class AppError extends Error {
+    statusCode: number;
+    isOperational: boolean;
+  
+    constructor(message: string, statusCode: number) {
+      super(message);
+      this.statusCode = statusCode;
+      this.isOperational = true;
+  
+      Error.captureStackTrace(this, this.constructor);
+    }
+  }
+  
+  export class NotFoundError extends AppError {
+    constructor(message = 'Resource not found') {
+      super(message, 404);
+    }
+  }
+  
+  export class UnauthorizedError extends AppError {
+    constructor(message = 'Unauthorized') {
+      super(message, 401);
+    }
+  }
+  
+  export class ForbiddenError extends AppError {
+    constructor(message = 'Forbidden') {
+      super(message, 403);
+    }
+  }
+  
+  export class ValidationError extends AppError {
+    constructor(message = 'Validation Error') {
+      super(message, 400);
+    }
+  }
+</file>
+
+<file path="src/utils/logger.ts">
+import winston from 'winston';
+import { environment } from '../config/environment';
+
+const logger = winston.createLogger({
+  level: environment.logLevel,
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'user-service' },
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      ),
+    }),
+  ],
+});
+
+export default logger;
+</file>
+
+<file path="src/validations/user.validation.ts">
+import Joi from 'joi';
+
+export const updateUserSchema = Joi.object({
+  displayName: Joi.string().min(2).max(255).optional()
+});
+
+export const userPaginationSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).optional(),
+  search: Joi.string().optional()
+});
+</file>
+
+<file path="src/app.ts">
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import { environment } from './config/environment';
+import { errorHandler } from './middleware/error.middleware';
+import userRoutes from './routes/user.routes';
+import logger from './utils/logger';
+
+const app = express();
+
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use(morgan(environment.nodeEnv === 'production' ? 'combined' : 'dev'));
+
+app.use('/api/users', userRoutes);
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', environment: environment.nodeEnv });
+});
+
+// Apply error handling middleware (must be last)
+app.use(errorHandler);
+
+export default app;
+</file>
+
+<file path="src/server.ts">
+import 'dotenv/config';
+import app from './app';
+import connectDB from './config/database';
+import { environment } from './config/environment';
+import logger from './utils/logger';
+
+const startServer = async () => {
+  try {
+    // Connect to MongoDB
+    await connectDB();
+    
+    // Start the Express server
+    const server = app.listen(environment.port, () => {
+      logger.info(`Server started on port ${environment.port} in ${environment.nodeEnv} mode`);
+    });
+
+    // Handle unhandled rejections
+    process.on('unhandledRejection', (err) => {
+      logger.error('Unhandled Rejection', err);
+      server.close(() => {
+        process.exit(1);
+      });
+    });
+
+    // Handle SIGTERM
+    process.on('SIGTERM', () => {
+      logger.info('SIGTERM received. Shutting down gracefully');
+      server.close(() => {
+        logger.info('Process terminated');
+      });
+    });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+</file>
+
+<file path="package.json">
+{
+  "name": "userservice",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "build": "tsc",
+    "test": "jest",
+    "seed": "ts-node src/scripts/seed.ts",
+    "db:setup": "ts-node src/scripts/db-setup.ts",
+    "db:reset": "npm run db:setup && npm run seed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RachidChabane/UserService.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RachidChabane/UserService/issues"
+  },
+  "homepage": "https://github.com/RachidChabane/UserService#readme",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-jwt": "^8.5.1",
+    "helmet": "^8.1.0",
+    "joi": "^17.13.3",
+    "jwks-rsa": "^3.2.0",
+    "mongodb": "^6.15.0",
+    "mongoose": "^8.13.0",
+    "morgan": "^1.10.0",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/jest": "^29.5.14",
+    "@types/mongodb": "^4.0.6",
+    "@types/mongoose": "^5.11.96",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.13.13",
+    "@types/pg": "^8.11.11",
+    "@types/supertest": "^6.0.3",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^10.1.1",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.9",
+    "prettier": "^3.5.3",
+    "supertest": "^7.1.0",
+    "ts-jest": "^29.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts"
+  ]
+}
+</file>
+
+<file path="README.md">
+# User Service
+</file>
+
+</files>
