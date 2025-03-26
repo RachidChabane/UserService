@@ -40,10 +40,25 @@ export const validateJwt = jwt({
 export const syncUserMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.auth?.sub) {
-      return next(new UnauthorizedError('No authenticated user found '));
+      return next(new UnauthorizedError('No authenticated user found'));
     }
 
     const auth0Id = req.auth.sub;
+    
+    if (auth0Id.includes('@clients')) {
+      const email = 'api-service@yourcompany.com'; 
+      const name = 'API Service';
+      
+      const user = await userService.findOrCreateUser({
+        auth0Id,
+        email,  
+        displayName: name
+      });
+      // @ts-ignore
+      req.user = user;
+      return next();
+    }
+    
     const email = req.auth.email || '';
     const name = req.auth[`${environment.auth0.audience}/name`] || req.auth.name || '';
 
@@ -53,7 +68,7 @@ export const syncUserMiddleware = async (req: Request, res: Response, next: Next
       displayName: name
     });
 
-//  @ts-ignore
+    // @ts-ignore
     req.user = user;
     next();
   } catch (error) {
