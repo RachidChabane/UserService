@@ -213,17 +213,17 @@ curl --request POST \
 
 ```bash
 # Health check (no auth required)
-curl http://localhost:3000/health
+curl http://localhost:3001/health
 
 # Get current user (auth required)
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/users/me
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3001/api/users/me
 
 # Update user profile
 curl -X PUT \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"displayName":"New Name"}' \
-  http://localhost:3000/api/users/me
+  http://localhost:3001/api/users/me
 ```
 
 ## Testing Script
