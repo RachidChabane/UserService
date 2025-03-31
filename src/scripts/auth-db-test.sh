@@ -32,7 +32,7 @@ fi
 
 # 2. Check if application is running
 echo -e "\n${YELLOW}Checking if application is running...${NC}"
-if curl -s http://localhost:3000/health >/dev/null; then
+if curl -s http://localhost:3001/health >/dev/null; then
     echo -e "${GREEN}✓ Application is running${NC}"
 else
     echo -e "${RED}✗ Application is not running${NC}"
@@ -50,7 +50,7 @@ else
     # Wait for application to start
     echo "Waiting for application to start..."
     for i in {1..10}; do
-        if curl -s http://localhost:3000/health >/dev/null; then
+        if curl -s http://localhost:3001/health >/dev/null; then
             echo -e "${GREEN}✓ Application started successfully${NC}"
             break
         fi
@@ -79,7 +79,7 @@ fi
 
 # 4. Test health endpoint
 echo -e "\n${YELLOW}Testing health endpoint...${NC}"
-health_response=$(curl -s http://localhost:3000/health)
+health_response=$(curl -s http://localhost:3001/health)
 echo "Response: $health_response"
 
 if [[ "$health_response" == *"\"status\":\"ok\""* ]]; then
@@ -90,7 +90,7 @@ fi
 
 # 5. Test authentication with token
 echo -e "\n${YELLOW}Testing authentication with token...${NC}"
-user_response=$(curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/users/me)
+user_response=$(curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3001/api/users/me)
 echo "Response: $user_response"
 
 if [[ "$user_response" == *"\"status\":\"success\""* ]]; then
@@ -107,7 +107,7 @@ if [[ "$user_response" == *"\"status\":\"success\""* ]]; then
       -H "Authorization: Bearer $TOKEN" \
       -H "Content-Type: application/json" \
       -d "{\"displayName\":\"$update_name\"}" \
-      http://localhost:3000/api/users/me)
+      http://localhost:3001/api/users/me)
     echo "Response: $update_response"
     
     if [[ "$update_response" == *"\"status\":\"success\""* ]]; then

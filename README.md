@@ -91,7 +91,7 @@ Create a `.env` file in the root directory with the following configuration:
 
 ```
 NODE_ENV=development
-PORT=3000
+PORT=3001
 MONGODB_URI=mongodb://localhost:27017/concert_tickets
 AUTH0_DOMAIN=your-domain.auth0.com
 AUTH0_AUDIENCE=https://api.concert-tickets.com

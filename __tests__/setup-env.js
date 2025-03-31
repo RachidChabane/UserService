@@ -1,6 +1,6 @@
 
 process.env.NODE_ENV = 'test';
-process.env.PORT = '3000';
+process.env.PORT = '3001';
 process.env.MONGODB_URI = 'mongodb://localhost:27017/test_concert_tickets';
 process.env.AUTH0_DOMAIN = 'just-ticket.eu.auth0.com';
 process.env.AUTH0_AUDIENCE = 'https://api.concert-tickets.com';
