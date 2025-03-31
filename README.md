@@ -91,7 +91,7 @@ Create a `.env` file in the root directory with the following configuration:
 
 ```
 NODE_ENV=development
-PORT=3000
+PORT=3001
 MONGODB_URI=mongodb://localhost:27017/concert_tickets
 AUTH0_DOMAIN=your-domain.auth0.com
 AUTH0_AUDIENCE=https://api.concert-tickets.com
@@ -132,15 +132,66 @@ npm start
 
 - `GET /health` - Health check endpoint
 
+  ```
+  This route requires no authentication and simply returns the service status
+  and runtime environment. It's used for availability checks and readiness
+  probes in orchestrated environments.
+  ```
+
 ### Protected Endpoints (require authentication)
 
 - `GET /api/users/me` - Get current user's profile
+
+  ```
+  The /me route identifies the current user through a multi-step process:
+  1. The validateJwt middleware verifies the JWT token in the authorization header
+  2. The syncUserMiddleware extracts the Auth0 ID (sub) from the token and retrieves
+     the user from MongoDB
+  3. The getCurrentUser controller accesses the user via req.user.id and returns their data
+  ```
+
 - `PUT /api/users/me` - Update current user's profile
+
+  ```
+  This route uses the same authentication flow as GET /me, but:
+  1. It also employs the validate middleware with updateUserSchema to validate incoming data
+  2. The updateCurrentUser controller uses userService.updateProfile to modify allowed
+     attributes (such as displayName)
+  3. Only the authenticated user can modify their own profile
+  ```
 
 ### Admin Endpoints (require admin role)
 
 - `GET /api/users` - List all users (with pagination)
+
+  ```
+  This route adds an additional security layer:
+  1. After validateJwt and syncUserMiddleware, the requireAdmin middleware checks
+     that req.user.role is 'admin'
+  2. The listUsers controller implements pagination and search via page, limit,
+     and search query parameters
+  3. The userService.findAllUsers function handles filtering and pagination in MongoDB
+
+  ```
+
+  Request Example:
+
+  ```
+  GET /api/users?page=1&limit=10
+  GET /api/users?page=2&limit=20
+  GET /api/users?search=john
+  ```
+
 - `GET /api/users/:id` - Get a specific user by ID
+
+  ```
+  This admin route follows a similar flow to the user listing:
+  1. Authentication and admin role verification middlewares are applied
+  2. The getUserById controller extracts the ID from the URL parameter and uses
+     userService.findById to retrieve the data
+  3. If the user doesn't exist, a NotFoundError is thrown and handled by the
+     error middleware
+  ```
 
 ## Testing the API
 
@@ -162,25 +213,24 @@ curl --request POST \
 
 ```bash
 # Health check (no auth required)
-curl http://localhost:3000/health
+curl http://localhost:3001/health
 
 # Get current user (auth required)
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/users/me
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3001/api/users/me
 
 # Update user profile
 curl -X PUT \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"displayName":"New Name"}' \
-  http://localhost:3000/api/users/me
+  http://localhost:3001/api/users/me
 ```
 
-## Testing Scripts
-
-The repository includes several testing scripts:
+## Testing Script
 
 ```bash
 chmod +x src/scripts/auth-db-test.sh
+
 ./src/scripts/auth-db-test.sh
 ```
 

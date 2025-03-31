@@ -3,3 +3,4 @@ node_modules
 .DS_Store
 ./src/scripts/get_auth0_token.sh
 node_modules
+coverage/
