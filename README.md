@@ -171,6 +171,15 @@ npm start
   2. The listUsers controller implements pagination and search via page, limit,
      and search query parameters
   3. The userService.findAllUsers function handles filtering and pagination in MongoDB
+
+  ```
+
+  Request Example:
+
+  ```
+  GET /api/users?page=1&limit=10
+  GET /api/users?page=2&limit=20
+  GET /api/users?search=john
   ```
 
 - `GET /api/users/:id` - Get a specific user by ID
